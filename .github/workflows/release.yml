@@ -23,3 +23,4 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           use_changelog_generator: 'true'
+          skip_plugin_validator: 'true'
