@@ -1,0 +1,53 @@
+name: Test signed changelog commit
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Plugin version to simulate (must match package.json version)"
+        required: true
+        default: "1.0.0"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create dummy CHANGELOG.md
+        run: echo "## v${{ github.event.inputs.version }}" > CHANGELOG.md
+
+      - name: Commit changelog via API
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PLUGIN_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          HEAD_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/branches/${DEFAULT_BRANCH}" --jq '.commit.sha')
+          FILE_CONTENTS=$(base64 -w 0 CHANGELOG.md)
+
+          jq -n \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg branch "$DEFAULT_BRANCH" \
+            --arg message "docs: update changelog for ${PLUGIN_VERSION} [skip ci]" \
+            --arg contents "$FILE_CONTENTS" \
+            --arg headOid "$HEAD_SHA" \
+            '{
+              query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { url } } }",
+              variables: {
+                input: {
+                  branch: {
+                    repositoryNameWithOwner: $repo,
+                    branchName: $branch
+                  },
+                  message: { headline: $message },
+                  fileChanges: {
+                    additions: [{ path: "CHANGELOG.md", contents: $contents }]
+                  },
+                  expectedHeadOid: $headOid
+                }
+              }
+            }' | gh api graphql --input -
