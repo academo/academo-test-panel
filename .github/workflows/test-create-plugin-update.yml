@@ -1,0 +1,19 @@
+name: Test create-plugin-update signed commit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: grafana/plugin-actions/create-plugin-update@fix/signed-commits-create-plugin-update
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
